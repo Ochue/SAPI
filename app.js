@@ -1,16 +1,19 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const dotenv = require('dotenv');
-
-dotenv.config(); // Carga variables del .env
+require('dotenv').config(); // <-- Esta línea YA carga las variables (no necesitas la segunda llamada)
 
 const app = express();
+
+// Middlewares
 app.use(express.json()); // Permite recibir JSON en las peticiones
 
-// Conexión a MongoDB
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('Conectado a MongoDB'))
-  .catch(err => console.error('Error de conexión:', err));
+// Conexión a MongoDB (versión mejorada con opciones)
+mongoose.connect(process.env.MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+})
+  .then(() => console.log('✅ Conectado a MongoDB Atlas'))
+  .catch(err => console.error('❌ Error de conexión:', err));
 
 // Ruta de prueba
 app.get('/', (req, res) => {
@@ -18,9 +21,8 @@ app.get('/', (req, res) => {
 });
 
 // ===== RUTAS PRINCIPALES =====
-app.use('/api/usuarios', require('./routes/usuarioRoutes')); // Ruta de usuarios
+app.use('/api/usuarios', require('./routes/usuarioRoutes'));
 app.use('/api/tareas', require('./routes/tareaRoutes'));
-app.use('/api/recordatorios', require('./routes/recordatorioRoutes')); // ¡Esta línea debe existir!
-// Aquí agregarás más rutas luego (tareas, recordatorios, etc.)
+app.use('/api/recordatorios', require('./routes/recordatorioRoutes'));
 
 module.exports = app;
