@@ -22,6 +22,7 @@ app.get('/', (req, res) => {
 
 // ===== RUTAS PRINCIPALES =====
 app.use('/api/usuarios', require('./routes/usuarioRoutes'));
+app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/tareas', require('./routes/tareaRoutes'));
 app.use('/api/recordatorios', require('./routes/recordatorioRoutes'));
 
