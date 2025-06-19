@@ -6,6 +6,12 @@ exports.login = async (req, res) => {
   const { email, contraseña } = req.body;
 
   try {
+    // 0. Validación crítica del JWT_SECRET
+    if (!process.env.JWT_SECRET) {
+      console.error('❌ JWT_SECRET no configurado en las variables de entorno');
+      return res.status(500).json({ error: 'Error de configuración del servidor' });
+    }
+
     // 1. Buscar usuario incluyendo explícitamente el campo contraseña_hash
     const usuario = await Usuario.findOne({ email }).select('+contraseña_hash').lean();
 
@@ -20,21 +26,32 @@ exports.login = async (req, res) => {
       return res.status(401).json({ error: 'Contraseña incorrecta' });
     }
 
-    // 3. Generar token JWT
+    // 3. Generar token JWT con verificación adicional
     const token = jwt.sign(
       { id: usuario._id, email: usuario.email },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET, // Asegúrate que esto tenga valor
       { expiresIn: '1h' }
     );
 
     // 4. Eliminar campos sensibles de la respuesta
-    delete usuario.contraseña_hash;
-    delete usuario.__v;
+    const usuarioRespuesta = { ...usuario };
+    delete usuarioRespuesta.contraseña_hash;
+    delete usuarioRespuesta.__v;
 
-    res.json({ token, usuario });
+    res.json({ token, usuario: usuarioRespuesta });
 
   } catch (error) {
     console.error('Error en login:', error);
-    res.status(500).json({ error: 'Error en el servidor' });
+    
+    // Respuesta detallada en desarrollo
+    const respuestaError = {
+      error: 'Error en el servidor',
+      ...(process.env.NODE_ENV === 'development' && {
+        detalle: error.message,
+        stack: error.stack
+      })
+    };
+    
+    res.status(500).json(respuestaError);
   }
 };
