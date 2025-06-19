@@ -1,11 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const tareaController = require('../controllers/tareaController');
+const { verificarToken } = require('../middlewares/auth'); // <<-- Importa el middleware
 
-// POST /api/tareas → Crear nueva tarea
-router.post('/', tareaController.crearTarea);
-
-// GET /api/tareas/usuario/:usuarioId → Obtener tareas de un usuario
-router.get('/usuario/:usuarioId', tareaController.obtenerTareasPorUsuario);
+// Todas las rutas protegidas
+router.post('/', verificarToken, tareaController.crearTarea);
+router.get('/usuario/:usuarioId', verificarToken, tareaController.obtenerTareasPorUsuario);
 
 module.exports = router;
