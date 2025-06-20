@@ -6,5 +6,9 @@ const { verificarToken } = require('../middlewares/auth'); // <<-- Importa el mi
 // Todas las rutas protegidas
 router.post('/', verificarToken, tareaController.crearTarea);
 router.get('/usuario/:usuarioId', verificarToken, tareaController.obtenerTareasPorUsuario);
+// PUT /api/tareas/:id - Actualizar tarea
+router.put('/:id', verificarToken, tareaController.actualizarTarea);
 
+// DELETE /api/tareas/:id - Eliminar tarea
+router.delete('/:id', verificarToken, tareaController.eliminarTarea);
 module.exports = router;
