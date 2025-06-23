@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 
+// MiembroSchema actualizado
 const MiembroSchema = new mongoose.Schema({
   usuario_id: {
     type: mongoose.Schema.Types.ObjectId,
@@ -8,14 +9,23 @@ const MiembroSchema = new mongoose.Schema({
   },
   rol: {
     type: String,
-    enum: ['lider', 'miembro'],
+    enum: ['lider', 'miembro', 'admin'], // Agregado 'admin'
     default: 'miembro'
   },
   fecha_union: {
     type: Date,
     default: Date.now
+  },
+  department: {
+    type: String,
+    default: ''
+  },
+  status: {
+    type: String,
+    enum: ['active', 'inactive'],
+    default: 'active'
   }
-});
+}, { _id: false }); // Importante para evitar conflictos con subdocumentos
 
 const ProyectoSchema = new mongoose.Schema({
   nombre: {

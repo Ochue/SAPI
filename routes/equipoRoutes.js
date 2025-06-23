@@ -96,4 +96,34 @@ router.post('/:equipoId/proyectos/:proyectoId/tareas',
   equipoController.vincularTarea
 );
 
+// Editar proyecto
+router.put('/:equipoId/proyectos/:proyectoId', 
+  verificarToken,
+  [
+    check('equipoId', 'El ID de equipo no es válido').isMongoId(),
+    check('proyectoId', 'El ID de proyecto no es válido').isMongoId(),
+    check('nombre', 'El nombre es obligatorio').not().isEmpty()
+  ],
+  equipoController.actualizarProyecto
+);
+
+// Eliminar proyecto
+router.delete('/:equipoId/proyectos/:proyectoId', 
+  verificarToken,
+  [
+    check('equipoId', 'El ID de equipo no es válido').isMongoId(),
+    check('proyectoId', 'El ID de proyecto no es válido').isMongoId()
+  ],
+  equipoController.eliminarProyecto
+);
+
+
+router.get('/:id/miembros', 
+  verificarToken,
+  [
+    check('id', 'El ID del equipo no es válido').isMongoId()
+  ],
+  equipoController.obtenerMiembros
+);
+
 module.exports = router;
