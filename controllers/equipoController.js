@@ -110,6 +110,35 @@ exports.obtenerEquipo = async (req, res) => {
   }
 };
 
+// Obtener miembros del equipo
+exports.obtenerMiembros = async (req, res) => {
+  try {
+    const equipo = await Equipo.findOne({
+      _id: req.params.id,
+      $or: [
+        { 'miembros.usuario_id': req.usuario.id },
+        { creado_por: req.usuario.id }
+      ]
+    })
+    .populate('miembros.usuario_id', 'nombre email');
+
+    if (!equipo) {
+      return res.status(404).json({
+        success: false,
+        error: 'Equipo no encontrado o no autorizado',
+        code: 'EQUIPO_018'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: equipo.miembros
+    });
+  } catch (error) {
+    handleError(res, error, 'Error al obtener miembros', 'EQUIPO_019');
+  }
+};
+
 // Actualizar equipo
 exports.actualizarEquipo = async (req, res) => {
   try {
@@ -118,7 +147,7 @@ exports.actualizarEquipo = async (req, res) => {
     const equipo = await Equipo.findOneAndUpdate(
       { 
         _id: req.params.id,
-        creado_por: req.usuario.id
+        creado_por: req.usuario.id // Solo el creador puede editar
       },
       { nombre },
       { new: true, runValidators: true }
@@ -150,13 +179,14 @@ exports.eliminarEquipo = async (req, res) => {
     await session.withTransaction(async () => {
       const equipo = await Equipo.findOneAndDelete({
         _id: req.params.id,
-        creado_por: req.usuario.id
+        creado_por: req.usuario.id // Solo el creador puede eliminar
       }).session(session);
 
       if (!equipo) {
         throw new Error('Equipo no encontrado o no autorizado');
       }
 
+      // Limpiar referencias en tareas
       await Tarea.updateMany(
         { equipo_id: equipo._id },
         { $unset: { equipo_id: 1, proyecto_id: 1 } },
@@ -180,7 +210,7 @@ exports.eliminarEquipo = async (req, res) => {
   }
 };
 
-// Agregar miembro
+// Agregar miembro a equipo
 exports.agregarMiembro = async (req, res) => {
   try {
     const { usuario_id, rol } = req.body;
@@ -188,7 +218,7 @@ exports.agregarMiembro = async (req, res) => {
     const equipo = await Equipo.findOneAndUpdate(
       { 
         _id: req.params.id,
-        creado_por: req.usuario.id
+        creado_por: req.usuario.id // Solo el creador puede agregar miembros
       },
       {
         $addToSet: {
@@ -219,13 +249,13 @@ exports.agregarMiembro = async (req, res) => {
   }
 };
 
-// Eliminar miembro
+// Eliminar miembro de equipo
 exports.eliminarMiembro = async (req, res) => {
   try {
     const equipo = await Equipo.findOneAndUpdate(
       { 
         _id: req.params.id,
-        creado_por: req.usuario.id
+        creado_por: req.usuario.id // Solo el creador puede eliminar miembros
       },
       {
         $pull: {
@@ -253,7 +283,7 @@ exports.eliminarMiembro = async (req, res) => {
   }
 };
 
-// Crear proyecto
+// Crear proyecto en equipo
 exports.crearProyecto = async (req, res) => {
   try {
     const { nombre } = req.body;
@@ -294,74 +324,7 @@ exports.crearProyecto = async (req, res) => {
   }
 };
 
-// Vincular tarea a proyecto
-exports.vincularTarea = async (req, res) => {
-  const session = await mongoose.startSession();
-  
-  try {
-    await session.withTransaction(async () => {
-      const { equipoId, proyectoId } = req.params;
-      const { tareaId } = req.body;
-
-      const equipo = await Equipo.findOne({
-        _id: equipoId,
-        $or: [
-          { 'miembros.usuario_id': req.usuario.id },
-          { creado_por: req.usuario.id }
-        ]
-      }).session(session);
-
-      if (!equipo) {
-        throw new Error('Equipo no encontrado o no autorizado');
-      }
-
-      const proyecto = equipo.proyectos.id(proyectoId);
-      if (!proyecto) {
-        throw new Error('Proyecto no encontrado');
-      }
-
-      const tarea = await Tarea.findOne({
-        _id: tareaId,
-        usuario_id: req.usuario.id
-      }).session(session);
-
-      if (!tarea) {
-        throw new Error('Tarea no encontrada o no autorizada');
-      }
-
-      await Equipo.updateOne(
-        { _id: equipoId, 'proyectos._id': proyectoId },
-        { $addToSet: { 'proyectos.$.tareas': tareaId } },
-        { session }
-      );
-
-      await Tarea.findByIdAndUpdate(
-        tareaId,
-        { 
-          equipo_id: equipoId,
-          proyecto_id: proyectoId
-        },
-        { session }
-      );
-
-      res.json({
-        success: true,
-        data: {
-          equipo: equipoId,
-          proyecto: proyectoId,
-          tarea: tareaId
-        }
-      });
-    });
-  } catch (error) {
-    await session.abortTransaction();
-    handleError(res, error, error.message || 'Error al vincular tarea', 'EQUIPO_014');
-  } finally {
-    session.endSession();
-  }
-};
-
-// Editar proyecto
+// Actualizar proyecto existente
 exports.actualizarProyecto = async (req, res) => {
   try {
     const { nombre } = req.body;
@@ -408,7 +371,7 @@ exports.eliminarProyecto = async (req, res) => {
       const equipo = await Equipo.findOneAndUpdate(
         { 
           _id: req.params.equipoId,
-          creado_por: req.usuario.id
+          creado_por: req.usuario.id // Solo el creador puede eliminar
         },
         { $pull: { proyectos: { _id: req.params.proyectoId } } },
         { new: true, session }
@@ -418,6 +381,7 @@ exports.eliminarProyecto = async (req, res) => {
         throw new Error('Equipo no encontrado o no autorizado');
       }
 
+      // Limpiar referencias en tareas
       await Tarea.updateMany(
         { proyecto_id: req.params.proyectoId },
         { $unset: { proyecto_id: 1 } },
@@ -440,30 +404,142 @@ exports.eliminarProyecto = async (req, res) => {
   }
 };
 
-// Obtener miembros de un equipo
-exports.obtenerMiembros = async (req, res) => {
+// Vincular tarea a proyecto
+exports.vincularTarea = async (req, res) => {
+  const session = await mongoose.startSession();
+  
   try {
-    const equipo = await Equipo.findOne({
-      _id: req.params.id,
-      $or: [
-        { creado_por: req.usuario.id },
-        { 'miembros.usuario_id': req.usuario.id }
-      ]
-    }).populate('miembros.usuario_id', 'nombre email');
+    await session.withTransaction(async () => {
+      const { equipoId, proyectoId } = req.params;
+      const { tareaId } = req.body;
 
-    if (!equipo) {
-      return res.status(404).json({
-        success: false,
-        error: 'Equipo no encontrado o no autorizado',
-        code: 'EQUIPO_018'
+      // 1. Verificar que el usuario tiene acceso al equipo
+      const equipo = await Equipo.findOne({
+        _id: equipoId,
+        $or: [
+          { 'miembros.usuario_id': req.usuario.id },
+          { creado_por: req.usuario.id }
+        ]
+      }).session(session);
+
+      if (!equipo) {
+        throw new Error('Equipo no encontrado o no autorizado');
+      }
+
+      // 2. Verificar que el proyecto existe en el equipo
+      const proyecto = equipo.proyectos.id(proyectoId);
+      if (!proyecto) {
+        throw new Error('Proyecto no encontrado');
+      }
+
+      // 3. Verificar que la tarea existe y pertenece al usuario
+      const tarea = await Tarea.findOne({
+        _id: tareaId,
+        usuario_id: req.usuario.id
+      }).session(session);
+
+      if (!tarea) {
+        throw new Error('Tarea no encontrada o no autorizada');
+      }
+
+      // 4. Actualizar ambas partes
+      await Equipo.updateOne(
+        { _id: equipoId, 'proyectos._id': proyectoId },
+        { $addToSet: { 'proyectos.$.tareas': tareaId } },
+        { session }
+      );
+
+      await Tarea.findByIdAndUpdate(
+        tareaId,
+        { 
+          equipo_id: equipoId,
+          proyecto_id: proyectoId
+        },
+        { session }
+      );
+
+      res.json({
+        success: true,
+        data: {
+          equipo: equipoId,
+          proyecto: proyectoId,
+          tarea: tareaId
+        }
       });
-    }
-
-    res.json({
-      success: true,
-      data: equipo.miembros
     });
   } catch (error) {
-    handleError(res, error, 'Error al obtener los miembros del equipo', 'EQUIPO_019');
+    await session.abortTransaction();
+    handleError(res, error, error.message || 'Error al vincular tarea', 'EQUIPO_014');
+  } finally {
+    session.endSession();
+  }
+};
+
+// Desvincular tarea de proyecto
+exports.desvincularTarea = async (req, res) => {
+  const session = await mongoose.startSession();
+
+  try {
+    await session.withTransaction(async () => {
+      const { equipoId, proyectoId, tareaId } = req.params;
+
+      // Verificar que el usuario tiene acceso al equipo
+      const equipo = await Equipo.findOne({
+        _id: equipoId,
+        $or: [
+          { 'miembros.usuario_id': req.usuario.id },
+          { creado_por: req.usuario.id }
+        ]
+      }).session(session);
+
+      if (!equipo) {
+        throw new Error('Equipo no encontrado o no autorizado');
+      }
+
+      // Verificar que el proyecto existe en el equipo
+      const proyecto = equipo.proyectos.id(proyectoId);
+      if (!proyecto) {
+        throw new Error('Proyecto no encontrado');
+      }
+
+      // Verificar que la tarea existe y pertenece al usuario
+      const tarea = await Tarea.findOne({
+        _id: tareaId,
+        usuario_id: req.usuario.id
+      }).session(session);
+
+      if (!tarea) {
+        throw new Error('Tarea no encontrada o no autorizada');
+      }
+
+      // Quitar la tarea del proyecto
+      await Equipo.updateOne(
+        { _id: equipoId, 'proyectos._id': proyectoId },
+        { $pull: { 'proyectos.$.tareas': tareaId } },
+        { session }
+      );
+
+      // Quitar la referencia proyecto_id en la tarea
+      await Tarea.findByIdAndUpdate(
+        tareaId,
+        { $unset: { proyecto_id: 1 } },
+        { session }
+      );
+
+      res.json({
+        success: true,
+        data: {
+          equipo: equipoId,
+          proyecto: proyectoId,
+          tarea: tareaId,
+          mensaje: 'Tarea desvinculada correctamente'
+        }
+      });
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    handleError(res, error, error.message || 'Error al desvincular tarea', 'EQUIPO_020');
+  } finally {
+    session.endSession();
   }
 };

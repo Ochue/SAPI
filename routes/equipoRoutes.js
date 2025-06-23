@@ -5,7 +5,7 @@ const { verificarToken } = require('../middlewares/auth');
 const { check } = require('express-validator');
 
 // Crear equipo
-router.post('/',
+router.post('/', 
   verificarToken,
   [
     check('nombre', 'El nombre es obligatorio').not().isEmpty(),
@@ -15,7 +15,7 @@ router.post('/',
 );
 
 // Obtener equipos del usuario
-router.get('/',
+router.get('/', 
   verificarToken,
   [
     check('page', 'La página debe ser un número').optional().isInt(),
@@ -25,7 +25,7 @@ router.get('/',
 );
 
 // Obtener un equipo específico
-router.get('/:id',
+router.get('/:id', 
   verificarToken,
   [
     check('id', 'El ID no es válido').isMongoId()
@@ -33,7 +33,7 @@ router.get('/:id',
   equipoController.obtenerEquipo
 );
 
-// Obtener miembros de un equipo
+// Obtener miembros del equipo
 router.get('/:id/miembros',
   verificarToken,
   [
@@ -43,7 +43,7 @@ router.get('/:id/miembros',
 );
 
 // Actualizar equipo
-router.put('/:id',
+router.put('/:id', 
   verificarToken,
   [
     check('id', 'El ID no es válido').isMongoId(),
@@ -54,7 +54,7 @@ router.put('/:id',
 );
 
 // Eliminar equipo
-router.delete('/:id',
+router.delete('/:id', 
   verificarToken,
   [
     check('id', 'El ID no es válido').isMongoId()
@@ -63,7 +63,7 @@ router.delete('/:id',
 );
 
 // Agregar miembro
-router.post('/:id/miembros',
+router.post('/:id/miembros', 
   verificarToken,
   [
     check('id', 'El ID no es válido').isMongoId(),
@@ -74,7 +74,7 @@ router.post('/:id/miembros',
 );
 
 // Eliminar miembro
-router.delete('/:id/miembros/:miembroId',
+router.delete('/:id/miembros/:miembroId', 
   verificarToken,
   [
     check('id', 'El ID no es válido').isMongoId(),
@@ -84,7 +84,7 @@ router.delete('/:id/miembros/:miembroId',
 );
 
 // Crear proyecto
-router.post('/:id/proyectos',
+router.post('/:id/proyectos', 
   verificarToken,
   [
     check('id', 'El ID no es válido').isMongoId(),
@@ -95,7 +95,7 @@ router.post('/:id/proyectos',
 );
 
 // Editar proyecto
-router.put('/:equipoId/proyectos/:proyectoId',
+router.put('/:equipoId/proyectos/:proyectoId', 
   verificarToken,
   [
     check('equipoId', 'El ID de equipo no es válido').isMongoId(),
@@ -106,7 +106,7 @@ router.put('/:equipoId/proyectos/:proyectoId',
 );
 
 // Eliminar proyecto
-router.delete('/:equipoId/proyectos/:proyectoId',
+router.delete('/:equipoId/proyectos/:proyectoId', 
   verificarToken,
   [
     check('equipoId', 'El ID de equipo no es válido').isMongoId(),
@@ -116,7 +116,7 @@ router.delete('/:equipoId/proyectos/:proyectoId',
 );
 
 // Vincular tarea a proyecto
-router.post('/:equipoId/proyectos/:proyectoId/tareas',
+router.post('/:equipoId/proyectos/:proyectoId/tareas', 
   verificarToken,
   [
     check('equipoId', 'El ID de equipo no es válido').isMongoId(),
@@ -124,6 +124,17 @@ router.post('/:equipoId/proyectos/:proyectoId/tareas',
     check('tareaId', 'El ID de tarea no es válido').isMongoId()
   ],
   equipoController.vincularTarea
+);
+
+// Desvincular tarea de proyecto
+router.delete('/:equipoId/proyectos/:proyectoId/tareas/:tareaId',
+  verificarToken,
+  [
+    check('equipoId', 'El ID de equipo no es válido').isMongoId(),
+    check('proyectoId', 'El ID de proyecto no es válido').isMongoId(),
+    check('tareaId', 'El ID de tarea no es válido').isMongoId()
+  ],
+  equipoController.desvincularTarea
 );
 
 module.exports = router;
