@@ -30,12 +30,30 @@ const EquipoSchema = new mongoose.Schema({
     ref: 'Usuario',
     required: true
   }
-}, { timestamps: true });
+}, { 
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
+});
 
 // Validación: Solo un líder por equipo
 EquipoSchema.path('miembros').validate(function(miembros) {
   const lideres = miembros.filter(m => m.rol === 'lider');
   return lideres.length <= 1;
 }, 'Solo puede haber un líder por equipo');
+
+// Middleware para limpiar referencia en Tarea al eliminar equipo
+EquipoSchema.post('findOneAndDelete', async function(doc) {
+  try {
+    if (doc && doc.tarea_id) {
+      await mongoose.model('Tarea').updateOne(
+        { _id: doc.tarea_id },
+        { $unset: { equipo_asignado: "" } }
+      );
+    }
+  } catch (error) {
+    console.error('Error limpiando referencia de equipo en tarea:', error);
+  }
+});
 
 module.exports = mongoose.model('Equipo', EquipoSchema);

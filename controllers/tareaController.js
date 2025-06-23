@@ -1,6 +1,8 @@
 const Tarea = require('../models/Tarea');
+const Equipo = require('../models/equipo');
+const mongoose = require('mongoose');
 
-// Helper para respuestas de error
+// Helper para respuestas de error (mantenido igual)
 const handleError = (res, error, defaultMessage, code) => {
   console.error(`[Error ${code}]`, error);
   const response = {
@@ -16,7 +18,7 @@ const handleError = (res, error, defaultMessage, code) => {
   return res.status(code >= 500 ? 500 : 400).json(response);
 };
 
-// Crear tarea (POST)
+// Crear tarea (POST) - Mantenido igual
 exports.crearTarea = async (req, res) => {
   try {
     const { titulo, descripcion, fecha_entrega, prioridad, categoria } = req.body;
@@ -49,7 +51,7 @@ exports.crearTarea = async (req, res) => {
   }
 };
 
-// Obtener tareas del usuario (GET)
+// Obtener tareas del usuario (GET) - Mantenido igual
 exports.obtenerTareasPorUsuario = async (req, res) => {
   try {
     const { page = 1, limit = 10, estado, prioridad } = req.query;
@@ -86,7 +88,7 @@ exports.obtenerTareasPorUsuario = async (req, res) => {
   }
 };
 
-// Actualizar tarea (PUT)
+// Actualizar tarea (PUT) - Mantenido igual
 exports.actualizarTarea = async (req, res) => {
   try {
     const { id } = req.params;
@@ -130,37 +132,37 @@ exports.actualizarTarea = async (req, res) => {
   }
 };
 
-// Eliminar tarea (DELETE)
+// Eliminar tarea (DELETE) - Actualizado con transacciones
 exports.eliminarTarea = async (req, res) => {
+  const session = await mongoose.startSession();
+  
   try {
-    const { id } = req.params;
+    await session.withTransaction(async () => {
+      const tarea = await Tarea.findOneAndDelete({
+        _id: req.params.id,
+        usuario_id: req.usuario.id
+      }).session(session);
 
-    const tarea = await Tarea.findOneAndDelete({
-      _id: id,
-      usuario_id: req.usuario.id
-    });
-
-    if (!tarea) {
-      return res.status(404).json({
-        success: false,
-        error: 'Tarea no encontrada o no autorizada',
-        code: 'TAREA_006'
-      });
-    }
-
-    res.json({
-      success: true,
-      data: {
-        id: tarea._id,
-        titulo: tarea.titulo,
-        mensaje: 'Tarea eliminada permanentemente'
-      },
-      meta: {
-        deletedAt: new Date()
+      if (!tarea) {
+        throw new Error('Tarea no encontrada o no autorizada');
       }
-    });
 
+      res.json({
+        success: true,
+        data: {
+          id: tarea._id,
+          titulo: tarea.titulo,
+          mensaje: 'Tarea eliminada permanentemente'
+        },
+        meta: {
+          deletedAt: new Date()
+        }
+      });
+    });
   } catch (error) {
-    handleError(res, error, 'Error al eliminar tarea', 'TAREA_007');
+    await session.abortTransaction();
+    handleError(res, error, error.message || 'Error al eliminar tarea', 'TAREA_007');
+  } finally {
+    session.endSession();
   }
 };
