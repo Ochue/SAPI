@@ -41,27 +41,11 @@ const TareaSchema = new mongoose.Schema({
       message: 'Prioridad no válida'
     }, 
     default: 'media' 
-  },
-  equipo_asignado: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Equipo',
-    default: null
   }
 }, { 
   timestamps: true,
   toJSON: { virtuals: true }, 
   toObject: { virtuals: true }
-});
-
-TareaSchema.post('findOneAndDelete', async function(doc) {
-  try {
-    if (doc?.equipo_asignado) {
-      await mongoose.model('Equipo').deleteOne({ _id: doc.equipo_asignado });
-      console.log(`Equipo asociado ${doc.equipo_asignado} eliminado con tarea ${doc._id}`);
-    }
-  } catch (error) {
-    console.error('Error eliminando equipo asociado:', error.message);
-  }
 });
 
 module.exports = mongoose.model('Tarea', TareaSchema);

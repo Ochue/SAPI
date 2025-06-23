@@ -1,5 +1,4 @@
 const Tarea = require('../models/Tarea');
-const mongoose = require('mongoose');
 
 const handleError = (res, error, defaultMessage, code) => {
   console.error(`[Error ${code}]`, error);
@@ -18,14 +17,13 @@ const handleError = (res, error, defaultMessage, code) => {
 
 exports.crearTarea = async (req, res) => {
   try {
-    const { titulo, descripcion, fecha_entrega, prioridad, equipo_asignado } = req.body;
+    const { titulo, descripcion, fecha_entrega, prioridad } = req.body;
 
     const tarea = new Tarea({
       titulo,
       descripcion: descripcion || undefined,
       fecha_entrega: fecha_entrega ? new Date(fecha_entrega) : undefined,
       prioridad: prioridad || 'media',
-      equipo_asignado: equipo_asignado || undefined,
       usuario_id: req.usuario.id
     });
 
@@ -39,8 +37,7 @@ exports.crearTarea = async (req, res) => {
       success: true,
       data: response,
       meta: {
-        createdAt: tarea.createdAt,
-        esEquipo: !!tarea.equipo_asignado
+        createdAt: tarea.createdAt
       }
     });
 
@@ -51,14 +48,12 @@ exports.crearTarea = async (req, res) => {
 
 exports.obtenerTareasPorUsuario = async (req, res) => {
   try {
-    const { page = 1, limit = 10, estado, prioridad, conEquipo } = req.query;
+    const { page = 1, limit = 10, estado, prioridad } = req.query;
     const skip = (page - 1) * limit;
 
     const query = { usuario_id: req.usuario.id };
     if (estado) query.estado = estado;
     if (prioridad) query.prioridad = prioridad;
-    if (conEquipo === 'true') query.equipo_asignado = { $exists: true, $ne: null };
-    if (conEquipo === 'false') query.equipo_asignado = null;
 
     const [tareas, total] = await Promise.all([
       Tarea.find(query)
@@ -92,7 +87,7 @@ exports.actualizarTarea = async (req, res) => {
     const { id } = req.params;
     const updates = req.body;
 
-    const camposPermitidos = ['titulo', 'descripcion', 'fecha_entrega', 'estado', 'prioridad', 'equipo_asignado'];
+    const camposPermitidos = ['titulo', 'descripcion', 'fecha_entrega', 'estado', 'prioridad'];
     const camposInvalidos = Object.keys(updates).filter(field => !camposPermitidos.includes(field));
 
     if (camposInvalidos.length > 0) {
@@ -121,8 +116,7 @@ exports.actualizarTarea = async (req, res) => {
       success: true,
       data: tarea,
       meta: {
-        updatedAt: tarea.updatedAt,
-        esEquipo: !!tarea.equipo_asignado
+        updatedAt: tarea.updatedAt
       }
     });
 
@@ -132,36 +126,33 @@ exports.actualizarTarea = async (req, res) => {
 };
 
 exports.eliminarTarea = async (req, res) => {
-  const session = await mongoose.startSession();
-  
   try {
-    await session.withTransaction(async () => {
-      const tarea = await Tarea.findOneAndDelete({
-        _id: req.params.id,
-        usuario_id: req.usuario.id
-      }).session(session);
-
-      if (!tarea) {
-        throw new Error('Tarea no encontrada o no autorizada');
-      }
-
-      res.json({
-        success: true,
-        data: {
-          id: tarea._id,
-          titulo: tarea.titulo,
-          mensaje: 'Tarea eliminada permanentemente',
-          equipoEliminado: !!tarea.equipo_asignado
-        },
-        meta: {
-          deletedAt: new Date()
-        }
-      });
+    const tarea = await Tarea.findOneAndDelete({
+      _id: req.params.id,
+      usuario_id: req.usuario.id
     });
+
+    if (!tarea) {
+      return res.status(404).json({
+        success: false,
+        error: 'Tarea no encontrada o no autorizada',
+        code: 'TAREA_006'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        id: tarea._id,
+        titulo: tarea.titulo,
+        mensaje: 'Tarea eliminada permanentemente'
+      },
+      meta: {
+        deletedAt: new Date()
+      }
+    });
+
   } catch (error) {
-    await session.abortTransaction();
-    handleError(res, error, error.message || 'Error al eliminar tarea', 'TAREA_007');
-  } finally {
-    session.endSession();
+    handleError(res, error, 'Error al eliminar tarea', 'TAREA_007');
   }
 };
