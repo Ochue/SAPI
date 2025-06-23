@@ -1,8 +1,6 @@
 const Tarea = require('../models/Tarea');
-const Equipo = require('../models/equipo');
 const mongoose = require('mongoose');
 
-// Helper para respuestas de error (mantenido igual)
 const handleError = (res, error, defaultMessage, code) => {
   console.error(`[Error ${code}]`, error);
   const response = {
@@ -18,10 +16,9 @@ const handleError = (res, error, defaultMessage, code) => {
   return res.status(code >= 500 ? 500 : 400).json(response);
 };
 
-// Crear tarea (POST) - Mantenido igual
 exports.crearTarea = async (req, res) => {
   try {
-    const { titulo, descripcion, fecha_entrega, prioridad, categoria } = req.body;
+    const { titulo, descripcion, fecha_entrega, prioridad, categoria, equipo_asignado } = req.body;
 
     const tarea = new Tarea({
       titulo,
@@ -29,6 +26,7 @@ exports.crearTarea = async (req, res) => {
       fecha_entrega: fecha_entrega ? new Date(fecha_entrega) : undefined,
       prioridad: prioridad || 'media',
       categoria,
+      equipo_asignado: equipo_asignado || undefined,
       usuario_id: req.usuario.id
     });
 
@@ -42,7 +40,8 @@ exports.crearTarea = async (req, res) => {
       success: true,
       data: response,
       meta: {
-        createdAt: tarea.createdAt
+        createdAt: tarea.createdAt,
+        esEquipo: !!tarea.equipo_asignado
       }
     });
 
@@ -51,15 +50,16 @@ exports.crearTarea = async (req, res) => {
   }
 };
 
-// Obtener tareas del usuario (GET) - Mantenido igual
 exports.obtenerTareasPorUsuario = async (req, res) => {
   try {
-    const { page = 1, limit = 10, estado, prioridad } = req.query;
+    const { page = 1, limit = 10, estado, prioridad, conEquipo } = req.query;
     const skip = (page - 1) * limit;
 
     const query = { usuario_id: req.usuario.id };
     if (estado) query.estado = estado;
     if (prioridad) query.prioridad = prioridad;
+    if (conEquipo === 'true') query.equipo_asignado = { $exists: true, $ne: null };
+    if (conEquipo === 'false') query.equipo_asignado = null;
 
     const [tareas, total] = await Promise.all([
       Tarea.find(query)
@@ -88,13 +88,12 @@ exports.obtenerTareasPorUsuario = async (req, res) => {
   }
 };
 
-// Actualizar tarea (PUT) - Mantenido igual
 exports.actualizarTarea = async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
 
-    const camposPermitidos = ['titulo', 'descripcion', 'fecha_entrega', 'estado', 'prioridad', 'categoria'];
+    const camposPermitidos = ['titulo', 'descripcion', 'fecha_entrega', 'estado', 'prioridad', 'categoria', 'equipo_asignado'];
     const camposInvalidos = Object.keys(updates).filter(field => !camposPermitidos.includes(field));
 
     if (camposInvalidos.length > 0) {
@@ -123,7 +122,8 @@ exports.actualizarTarea = async (req, res) => {
       success: true,
       data: tarea,
       meta: {
-        updatedAt: tarea.updatedAt
+        updatedAt: tarea.updatedAt,
+        esEquipo: !!tarea.equipo_asignado
       }
     });
 
@@ -132,7 +132,6 @@ exports.actualizarTarea = async (req, res) => {
   }
 };
 
-// Eliminar tarea (DELETE) - Actualizado con transacciones
 exports.eliminarTarea = async (req, res) => {
   const session = await mongoose.startSession();
   
@@ -152,7 +151,8 @@ exports.eliminarTarea = async (req, res) => {
         data: {
           id: tarea._id,
           titulo: tarea.titulo,
-          mensaje: 'Tarea eliminada permanentemente'
+          mensaje: 'Tarea eliminada permanentemente',
+          equipoEliminado: !!tarea.equipo_asignado
         },
         meta: {
           deletedAt: new Date()

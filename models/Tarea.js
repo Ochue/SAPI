@@ -49,7 +49,8 @@ const TareaSchema = new mongoose.Schema({
   },
   equipo_asignado: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Equipo'
+    ref: 'Equipo',
+    default: null
   }
 }, { 
   timestamps: true,
@@ -57,17 +58,15 @@ const TareaSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Middleware mejorado para eliminar equipo asociado
-TareaSchema.post('findOneAndDelete', async function(doc, next) {
+// Middleware para limpieza segura
+TareaSchema.post('findOneAndDelete', async function(doc) {
   try {
-    if (doc && doc.equipo_asignado) {
+    if (doc?.equipo_asignado) {
       await mongoose.model('Equipo').deleteOne({ _id: doc.equipo_asignado });
-      console.log(`Equipo ${doc.equipo_asignado} eliminado asociado a tarea ${doc._id}`);
+      console.log(`Equipo asociado ${doc.equipo_asignado} eliminado con tarea ${doc._id}`);
     }
   } catch (error) {
-    console.error(`Error eliminando equipo asociado a tarea ${doc?._id}:`, error);
-  } finally {
-    next();
+    console.error('Error eliminando equipo asociado:', error.message);
   }
 });
 
