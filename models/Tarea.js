@@ -41,6 +41,14 @@ const TareaSchema = new mongoose.Schema({
       message: 'Prioridad no válida'
     }, 
     default: 'media' 
+  },
+  equipo_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Equipo'
+  },
+  proyecto_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Equipo.proyectos'
   }
 }, { 
   timestamps: true,

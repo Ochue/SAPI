@@ -43,4 +43,12 @@ router.delete('/:id',
   tareaController.eliminarTarea
 );
 
+router.get('/equipo/:equipoId', 
+  verificarToken,
+  [
+    check('equipoId', 'El ID no es válido').isMongoId()
+  ],
+  tareaController.obtenerTareasPorEquipo
+);
+
 module.exports = router;

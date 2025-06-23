@@ -156,3 +156,62 @@ exports.eliminarTarea = async (req, res) => {
     handleError(res, error, 'Error al eliminar tarea', 'TAREA_007');
   }
 };
+
+
+exports.obtenerTareasPorEquipo = async (req, res) => {
+  try {
+    const { equipoId } = req.params;
+    const { page = 1, limit = 10, proyectoId } = req.query;
+    const skip = (page - 1) * limit;
+
+    // Verificar que el usuario tiene acceso al equipo
+    const equipo = await Equipo.findOne({
+      _id: equipoId,
+      $or: [
+        { 'miembros.usuario_id': req.usuario.id },
+        { creado_por: req.usuario.id }
+      ]
+    });
+
+    if (!equipo) {
+      return res.status(404).json({
+        success: false,
+        error: 'Equipo no encontrado o no autorizado',
+        code: 'TAREA_008'
+      });
+    }
+
+    const query = { 
+      usuario_id: req.usuario.id,
+      equipo_id: equipoId
+    };
+
+    if (proyectoId) {
+      query.proyecto_id = proyectoId;
+    }
+
+    const [tareas, total] = await Promise.all([
+      Tarea.find(query)
+        .select('-__v -usuario_id')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit))
+        .lean(),
+      Tarea.countDocuments(query)
+    ]);
+
+    res.json({
+      success: true,
+      data: tareas,
+      meta: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / limit)
+      }
+    });
+
+  } catch (error) {
+    handleError(res, error, 'Error al obtener tareas', 'TAREA_009');
+  }
+};
