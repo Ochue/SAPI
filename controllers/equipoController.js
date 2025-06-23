@@ -89,7 +89,7 @@ exports.obtenerEquipo = async (req, res) => {
       ]
     })
     .populate('creado_por', 'nombre email')
-    .populate('miembros.usuario_id', 'nombre email avatar')
+    .populate('miembros.usuario_id', 'nombre email')
     .populate('proyectos.tareas', 'titulo estado');
 
     if (!equipo) {
@@ -180,7 +180,7 @@ exports.eliminarEquipo = async (req, res) => {
   }
 };
 
-// Agregar miembro a equipo
+// Agregar miembro
 exports.agregarMiembro = async (req, res) => {
   try {
     const { usuario_id, rol } = req.body;
@@ -219,7 +219,7 @@ exports.agregarMiembro = async (req, res) => {
   }
 };
 
-// Eliminar miembro de equipo
+// Eliminar miembro
 exports.eliminarMiembro = async (req, res) => {
   try {
     const equipo = await Equipo.findOneAndUpdate(
@@ -253,7 +253,7 @@ exports.eliminarMiembro = async (req, res) => {
   }
 };
 
-// Crear proyecto en equipo
+// Crear proyecto
 exports.crearProyecto = async (req, res) => {
   try {
     const { nombre } = req.body;
@@ -361,7 +361,7 @@ exports.vincularTarea = async (req, res) => {
   }
 };
 
-// Editar proyecto existente
+// Editar proyecto
 exports.actualizarProyecto = async (req, res) => {
   try {
     const { nombre } = req.body;
@@ -440,7 +440,7 @@ exports.eliminarProyecto = async (req, res) => {
   }
 };
 
-
+// Obtener miembros de un equipo
 exports.obtenerMiembros = async (req, res) => {
   try {
     const equipo = await Equipo.findOne({
@@ -449,7 +449,7 @@ exports.obtenerMiembros = async (req, res) => {
         { creado_por: req.usuario.id },
         { 'miembros.usuario_id': req.usuario.id }
       ]
-    }).populate('miembros.usuario_id', 'nombre email avatar');
+    }).populate('miembros.usuario_id', 'nombre email');
 
     if (!equipo) {
       return res.status(404).json({
