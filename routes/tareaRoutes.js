@@ -4,20 +4,17 @@ const tareaController = require('../controllers/tareaController');
 const { verificarToken } = require('../middlewares/auth');
 const { check } = require('express-validator');
 
-// POST /api/tareas - Crear nueva tarea
 router.post('/', 
   verificarToken,
   [
     check('titulo', 'El título es obligatorio').not().isEmpty(),
     check('titulo', 'El título no puede exceder 100 caracteres').isLength({ max: 100 }),
     check('descripcion', 'La descripción no puede exceder 500 caracteres').optional().isLength({ max: 500 }),
-    check('categoria', 'La categoría no puede exceder 50 caracteres').optional().isLength({ max: 50 }),
     check('equipo_asignado', 'El ID de equipo no es válido').optional().isMongoId()
   ],
   tareaController.crearTarea
 );
 
-// GET /api/tareas - Obtener tareas del usuario
 router.get('/', 
   verificarToken,
   [
@@ -30,20 +27,17 @@ router.get('/',
   tareaController.obtenerTareasPorUsuario
 );
 
-// PUT /api/tareas/:id - Actualizar tarea
 router.put('/:id', 
   verificarToken,
   [
     check('id', 'El ID no es válido').isMongoId(),
     check('titulo', 'El título no puede exceder 100 caracteres').optional().isLength({ max: 100 }),
     check('descripcion', 'La descripción no puede exceder 500 caracteres').optional().isLength({ max: 500 }),
-    check('categoria', 'La categoría no puede exceder 50 caracteres').optional().isLength({ max: 50 }),
     check('equipo_asignado', 'El ID de equipo no es válido').optional().isMongoId()
   ],
   tareaController.actualizarTarea
 );
 
-// DELETE /api/tareas/:id - Eliminar tarea
 router.delete('/:id', 
   verificarToken,
   [
@@ -53,4 +47,3 @@ router.delete('/:id',
 );
 
 module.exports = router;
-//Hola//

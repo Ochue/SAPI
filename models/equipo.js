@@ -36,13 +36,11 @@ const EquipoSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Validación flexible de líder
 EquipoSchema.path('miembros').validate(function(miembros) {
   const lideres = miembros.filter(m => m.rol === 'lider');
   return lideres.length <= 1;
 }, 'Solo puede haber un líder como máximo (o ninguno)');
 
-// Limpieza de referencia en tarea
 EquipoSchema.post('findOneAndDelete', async function(doc) {
   try {
     if (doc?.tarea_id) {

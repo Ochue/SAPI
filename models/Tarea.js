@@ -42,11 +42,6 @@ const TareaSchema = new mongoose.Schema({
     }, 
     default: 'media' 
   },
-  categoria: { 
-    type: String,
-    trim: true,
-    maxlength: [50, 'La categoría no puede exceder 50 caracteres']
-  },
   equipo_asignado: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Equipo',
@@ -58,7 +53,6 @@ const TareaSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Middleware para limpieza segura
 TareaSchema.post('findOneAndDelete', async function(doc) {
   try {
     if (doc?.equipo_asignado) {

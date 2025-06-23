@@ -1,7 +1,6 @@
 const Tarea = require('../models/Tarea');
 const mongoose = require('mongoose');
 
-// Helper para respuestas de error
 const handleError = (res, error, defaultMessage, code) => {
   console.error(`[Error ${code}]`, error);
   const response = {
@@ -17,17 +16,15 @@ const handleError = (res, error, defaultMessage, code) => {
   return res.status(code >= 500 ? 500 : 400).json(response);
 };
 
-// Crear tarea (POST)
 exports.crearTarea = async (req, res) => {
   try {
-    const { titulo, descripcion, fecha_entrega, prioridad, categoria, equipo_asignado } = req.body;
+    const { titulo, descripcion, fecha_entrega, prioridad, equipo_asignado } = req.body;
 
     const tarea = new Tarea({
       titulo,
       descripcion: descripcion || undefined,
       fecha_entrega: fecha_entrega ? new Date(fecha_entrega) : undefined,
       prioridad: prioridad || 'media',
-      categoria,
       equipo_asignado: equipo_asignado || undefined,
       usuario_id: req.usuario.id
     });
@@ -52,7 +49,6 @@ exports.crearTarea = async (req, res) => {
   }
 };
 
-// Obtener tareas del usuario (GET)
 exports.obtenerTareasPorUsuario = async (req, res) => {
   try {
     const { page = 1, limit = 10, estado, prioridad, conEquipo } = req.query;
@@ -91,13 +87,12 @@ exports.obtenerTareasPorUsuario = async (req, res) => {
   }
 };
 
-// Actualizar tarea (PUT)
 exports.actualizarTarea = async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
 
-    const camposPermitidos = ['titulo', 'descripcion', 'fecha_entrega', 'estado', 'prioridad', 'categoria', 'equipo_asignado'];
+    const camposPermitidos = ['titulo', 'descripcion', 'fecha_entrega', 'estado', 'prioridad', 'equipo_asignado'];
     const camposInvalidos = Object.keys(updates).filter(field => !camposPermitidos.includes(field));
 
     if (camposInvalidos.length > 0) {
@@ -136,11 +131,9 @@ exports.actualizarTarea = async (req, res) => {
   }
 };
 
-// Eliminar tarea (DELETE) - Versión corregida
 exports.eliminarTarea = async (req, res) => {
   const session = await mongoose.startSession();
-  let transactionCompleted = false;
-
+  
   try {
     await session.withTransaction(async () => {
       const tarea = await Tarea.findOneAndDelete({
@@ -149,12 +142,7 @@ exports.eliminarTarea = async (req, res) => {
       }).session(session);
 
       if (!tarea) {
-        transactionCompleted = true;
-        return res.status(404).json({
-          success: false,
-          error: 'Tarea no encontrada o no autorizada',
-          code: 'TAREA_006'
-        });
+        throw new Error('Tarea no encontrada o no autorizada');
       }
 
       res.json({
@@ -169,23 +157,11 @@ exports.eliminarTarea = async (req, res) => {
           deletedAt: new Date()
         }
       });
-      transactionCompleted = true;
     });
   } catch (error) {
-    if (!transactionCompleted && session.inTransaction()) {
-      await session.abortTransaction();
-    }
-    console.error('[Error TAREA_007]', error);
-    
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Error al eliminar tarea',
-      code: 'TAREA_007'
-    });
+    await session.abortTransaction();
+    handleError(res, error, error.message || 'Error al eliminar tarea', 'TAREA_007');
   } finally {
-    if (!transactionCompleted && session.inTransaction()) {
-      await session.abortTransaction();
-    }
     session.endSession();
   }
 };
