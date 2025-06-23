@@ -4,11 +4,8 @@ const mongoose = require('mongoose');
 const { validationResult } = require('express-validator');
 
 exports.crearRecordatorio = async (req, res) => {
-  // Validar errores de express-validator
   const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
   try {
     if (!mongoose.Types.ObjectId.isValid(req.body.tarea_id)) {
@@ -20,9 +17,10 @@ exports.crearRecordatorio = async (req, res) => {
       return res.status(404).json({ error: "La tarea no existe" });
     }
 
+    // Crear recordatorio, ignorando horas_antes
     const recordatorio = new Recordatorio({
       tarea_id: req.body.tarea_id,
-      horas_antes: req.body.horas_antes
+      aviso_el_dia_entrega: true // Siempre true o puedes recibirlo en body si quieres flexibilidad
     });
 
     await recordatorio.save();
@@ -41,9 +39,7 @@ exports.crearRecordatorio = async (req, res) => {
 
 exports.obtenerRecordatoriosPorTarea = async (req, res) => {
   const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
   try {
     const recordatorios = await Recordatorio.find({ tarea_id: req.params.tareaId }).select('-__v');
@@ -55,18 +51,17 @@ exports.obtenerRecordatoriosPorTarea = async (req, res) => {
 
 exports.actualizarRecordatorio = async (req, res) => {
   const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({ error: "El ID del recordatorio no es válido" });
     }
 
+    // Solo actualizamos aviso_el_dia_entrega (o podrías omitir esta función si es fija)
     const recordatorio = await Recordatorio.findByIdAndUpdate(
       req.params.id,
-      { horas_antes: req.body.horas_antes },
+      { aviso_el_dia_entrega: true },
       { new: true, runValidators: true }
     );
 
@@ -89,9 +84,7 @@ exports.actualizarRecordatorio = async (req, res) => {
 
 exports.eliminarRecordatorio = async (req, res) => {
   const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {

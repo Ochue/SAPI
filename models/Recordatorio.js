@@ -6,7 +6,10 @@ const RecordatorioSchema = new mongoose.Schema({
     ref: 'Tarea', 
     required: true 
   },
-  horas_antes: { type: Number, required: true }
+  aviso_el_dia_entrega: {
+    type: Boolean,
+    default: true
+  }
 });
 
 module.exports = mongoose.model('Recordatorio', RecordatorioSchema);
