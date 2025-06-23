@@ -63,6 +63,7 @@ app.use('/api/usuarios', require('./routes/usuarioRoutes'));
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/tareas', require('./routes/tareaRoutes'));
 app.use('/api/recordatorios', require('./routes/recordatorioRoutes'));
+app.use('/api/equipos', require('./routes/equipoRoutes'));
 
 // =============================================
 // 5. Manejo de errores global

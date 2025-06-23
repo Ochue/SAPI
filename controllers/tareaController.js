@@ -1,115 +1,166 @@
 const Tarea = require('../models/Tarea');
 
+// Helper para respuestas de error
+const handleError = (res, error, defaultMessage, code) => {
+  console.error(`[Error ${code}]`, error);
+  const response = {
+    error: defaultMessage,
+    code: code,
+    ...(process.env.NODE_ENV === 'development' && { 
+      stack: error.stack,
+      ...(error.name === 'ValidationError' && {
+        detalles: Object.values(error.errors).map(e => e.message)
+      })
+    })
+  };
+  return res.status(code >= 500 ? 500 : 400).json(response);
+};
+
+// Crear tarea (POST)
 exports.crearTarea = async (req, res) => {
   try {
-    // 1. Validación mejorada del request
-    if (!req.body.titulo || typeof req.body.titulo !== 'string') {
-      return res.status(400).json({ 
-        error: "El título es requerido y debe ser texto",
-        code: "TAREA_001"
-      });
-    }
+    const { titulo, descripcion, fecha_entrega, prioridad, categoria } = req.body;
 
-    // 2. Validar prioridad si existe
-    if (req.body.prioridad && !['baja', 'media', 'alta'].includes(req.body.prioridad)) {
-      return res.status(400).json({
-        error: "Prioridad inválida (debe ser: baja, media o alta)",
-        code: "TAREA_002"
-      });
-    }
-
-    // 3. Crear tarea con datos sanitizados
     const tarea = new Tarea({
-      titulo: req.body.titulo,
-      descripcion: req.body.descripcion || null,
-      prioridad: req.body.prioridad || 'media',
-      estado: 'pendiente', // Valor por defecto
-      usuario_id: req.usuario.id, // Del middleware de autenticación
-      ...(req.body.fecha_entrega && { fecha_entrega: new Date(req.body.fecha_entrega) })
+      titulo,
+      descripcion: descripcion || undefined,
+      fecha_entrega: fecha_entrega ? new Date(fecha_entrega) : undefined,
+      prioridad: prioridad || 'media',
+      categoria,
+      usuario_id: req.usuario.id
     });
 
     await tarea.save();
 
-    // 4. Preparar respuesta segura
-    const tareaRespuesta = {
-      id: tarea._id,
-      titulo: tarea.titulo,
-      descripcion: tarea.descripcion,
-      prioridad: tarea.prioridad,
-      estado: tarea.estado,
-      fecha_creacion: tarea.createdAt,
-      ...(tarea.fecha_entrega && { fecha_entrega: tarea.fecha_entrega })
-    };
+    const response = tarea.toObject();
+    delete response.__v;
+    delete response.usuario_id;
 
     res.status(201).json({
       success: true,
-      data: tareaRespuesta
+      data: response,
+      meta: {
+        createdAt: tarea.createdAt
+      }
     });
 
   } catch (error) {
-    console.error('[Error crearTarea]', error);
-    
-    // Manejo especial para errores de MongoDB
-    if (error.name === 'ValidationError') {
-      return res.status(400).json({
-        error: "Error de validación",
-        detalles: Object.values(error.errors).map(e => e.message),
-        code: "TAREA_003"
-      });
-    }
-
-    res.status(500).json({ 
-      error: "Error interno del servidor",
-      code: "TAREA_500",
-      ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
-    });
+    handleError(res, error, 'Error al crear tarea', 'TAREA_001');
   }
 };
 
+// Obtener tareas del usuario (GET)
 exports.obtenerTareasPorUsuario = async (req, res) => {
   try {
-    // 1. Paginación y filtros
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const { page = 1, limit = 10, estado, prioridad } = req.query;
     const skip = (page - 1) * limit;
 
-    // 2. Construir query con filtros opcionales
     const query = { usuario_id: req.usuario.id };
-    if (req.query.estado) query.estado = req.query.estado;
-    if (req.query.prioridad) query.prioridad = req.query.prioridad;
+    if (estado) query.estado = estado;
+    if (prioridad) query.prioridad = prioridad;
 
-    // 3. Obtener tareas con paginación
-    const tareas = await Tarea.find(query)
-      .select('-__v -usuario_id')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean();
-
-    // 4. Obtener conteo total para paginación
-    const total = await Tarea.countDocuments(query);
+    const [tareas, total] = await Promise.all([
+      Tarea.find(query)
+        .select('-__v -usuario_id')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit))
+        .lean(),
+      Tarea.countDocuments(query)
+    ]);
 
     res.json({
       success: true,
       data: tareas,
       meta: {
         total,
-        page,
-        limit,
-        hasNextPage: (skip + limit) < total
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / limit),
+        ...(skip + parseInt(limit) < total && { nextPage: parseInt(page) + 1 })
       }
     });
 
   } catch (error) {
-    console.error('[Error obtenerTareas]', error);
-    
-    res.status(500).json({ 
-      error: "Error al obtener tareas",
-      code: "TAREA_501",
-      ...(process.env.NODE_ENV === 'development' && { 
-        detalle: error.message,
-        query: req.query 
-      })
+    handleError(res, error, 'Error al obtener tareas', 'TAREA_002');
+  }
+};
+
+// Actualizar tarea (PUT)
+exports.actualizarTarea = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    const camposPermitidos = ['titulo', 'descripcion', 'fecha_entrega', 'estado', 'prioridad', 'categoria'];
+    const camposInvalidos = Object.keys(updates).filter(field => !camposPermitidos.includes(field));
+
+    if (camposInvalidos.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: `Campos no permitidos: ${camposInvalidos.join(', ')}`,
+        code: 'TAREA_003'
+      });
+    }
+
+    const tarea = await Tarea.findOneAndUpdate(
+      { _id: id, usuario_id: req.usuario.id },
+      updates,
+      { new: true, runValidators: true }
+    ).select('-__v -usuario_id');
+
+    if (!tarea) {
+      return res.status(404).json({
+        success: false,
+        error: 'Tarea no encontrada o no autorizada',
+        code: 'TAREA_004'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: tarea,
+      meta: {
+        updatedAt: tarea.updatedAt
+      }
     });
+
+  } catch (error) {
+    handleError(res, error, 'Error al actualizar tarea', 'TAREA_005');
+  }
+};
+
+// Eliminar tarea (DELETE)
+exports.eliminarTarea = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const tarea = await Tarea.findOneAndDelete({
+      _id: id,
+      usuario_id: req.usuario.id
+    });
+
+    if (!tarea) {
+      return res.status(404).json({
+        success: false,
+        error: 'Tarea no encontrada o no autorizada',
+        code: 'TAREA_006'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        id: tarea._id,
+        titulo: tarea.titulo,
+        mensaje: 'Tarea eliminada permanentemente'
+      },
+      meta: {
+        deletedAt: new Date()
+      }
+    });
+
+  } catch (error) {
+    handleError(res, error, 'Error al eliminar tarea', 'TAREA_007');
   }
 };
